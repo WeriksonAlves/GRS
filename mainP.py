@@ -13,11 +13,8 @@ from modules import (
 
 # External library imports
 from sklearn.neighbors import KNeighborsClassifier
-# from std_msgs.msg import Int32
 from typing import Union, Optional
 import mediapipe as mp
-# import mp.solutions.hands
-# import mp.solutions.pose
 import os
 import rospy
 

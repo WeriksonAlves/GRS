@@ -1,32 +1,39 @@
 import os
+import threading
 from typing import Union
 from .SystemSettings import *
 from ..auxiliary.FileHandler import FileHandler
 from ..auxiliary.TimeFunctions import TimeFunctions
+from ..classifier.interfaces import InterfaceClassifier
 from ..gesture.DataProcessor import DataProcessor
 from ..gesture.GestureAnalyzer import GestureAnalyzer
 from ..gesture.FeatureExtractor import FeatureExtractor
+from ..pdi.interfaces import InterfaceTrack, InterfaceFeature
+from ..system.ServoPositionSystem import ServoPositionSystem
 
 # This class likely represents a system designed for recognizing gestures.
 class GestureRecognitionSystem:
     def __init__(self, config: InitializeConfig, operation: Union[ModeDataset, ModeValidate, ModeRealTime], 
-                 file_handler: FileHandler, current_folder: str, data_processor: DataProcessor, 
-                 time_functions: TimeFunctions, gesture_analyzer: GestureAnalyzer, tracking_processor, 
-                 feature, classifier=None):
+                file_handler: FileHandler, current_folder: str, data_processor: DataProcessor, 
+                time_functions: TimeFunctions, gesture_analyzer: GestureAnalyzer, tracking_processor: InterfaceTrack, 
+                feature: InterfaceFeature, classifier: InterfaceClassifier = None, sps: ServoPositionSystem = None) -> None:
+        
         self._initialize_camera(config)
         self._initialize_operation(operation)
-
+        
         self.file_handler = file_handler
         self.current_folder = current_folder
         self.data_processor = data_processor
         self.time_functions = time_functions
         self.gesture_analyzer = gesture_analyzer
-        self.classifier = classifier
         self.tracking_processor = tracking_processor
         self.feature = feature
-
+        self.classifier = classifier
+        self.sps = sps
+        
         self._initialize_simulation_variables()
         self._initialize_storage_variables()
+        self._initialize_threads()
 
     def _initialize_camera(self, config: InitializeConfig) -> None:
         """
@@ -76,6 +83,8 @@ class GestureRecognitionSystem:
         self.time_action = None
         self.y_val = None
         self.frame_captured = None
+        self.center_person = False
+        self.loop = False
         self.y_predict = []
         self.time_classifier = []
 
@@ -86,7 +95,16 @@ class GestureRecognitionSystem:
         """
         self.hand_history, _, self.wrists_history, self.sample = self.data_processor.initialize_data(self.dist, self.length)
 
-    def run(self):
+    def _initialize_threads(self) -> None:
+        # For threading
+        self.frame_lock = threading.Lock()
+        
+        # Thread for reading images
+        self.image_thread = threading.Thread(target=self._read_image_thread)
+        self.image_thread.daemon = True
+        self.image_thread.start()
+
+    def run(self) -> None:
         """
         Run the gesture recognition system based on the specified mode.
 
@@ -112,38 +130,38 @@ class GestureRecognitionSystem:
         elif self.mode == 'RT':
             self._load_and_fit_classifier()
             self.loop = True
+            self.servo_enabled = True
         elif self.mode == 'V':
             self._validate_classifier()
             self.loop = False
+            self.servo_enabled = False
         else:
             print(f"Operation mode invalid!")
             self.loop = False
+            self.servo_enabled = False
             
         t_frame = self.time_functions.tic()
         while self.loop:
-            if self.time_functions.toc(t_frame) > 1 / self.fps:
+            if self.time_functions.toc(t_frame) > (1 / self.fps):
                 t_frame = self.time_functions.tic()
                 
-                if cv2.waitKey(10) & 0xFF == ord("q"):
-                    break
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    self.stop()
                 
                 if self.mode == "B":
                     if self.num_gest == self.max_num_gest:
-                        break
+                        self.stop()
                 
                 self._process_stage()
 
-        self.cap.release()
-        cv2.destroyAllWindows()
-
-    def _initialize_database(self):
+    def _initialize_database(self) -> None:
         """
         This method initializes the target names and ground truth labels (y_val) by calling the
         initialize_database method of the file_handler object.
         """
         self.target_names, self.y_val = self.file_handler.initialize_database(self.database)
 
-    def _load_and_fit_classifier(self):
+    def _load_and_fit_classifier(self) -> None:
         """
         This method loads the training data, fits the classifier with the training data, and performs
         model training.
@@ -151,7 +169,7 @@ class GestureRecognitionSystem:
         x_train, y_train, _, _ = self.file_handler.load_database(self.current_folder, self.files_name, self.proportion)
         self.classifier.fit(x_train, y_train)
 
-    def _validate_classifier(self):
+    def _validate_classifier(self) -> None:
         """
         This method validates the classifier with validation data and saves the validation results.
         """
@@ -168,11 +186,12 @@ class GestureRecognitionSystem:
         - If conditions are met, the function may return `None` or continue execution without returning anything.
         """
         if self.stage in [0, 1] and self.mode in ['D', 'RT']:
-            if not self.read_image():
+            success, frame = self._read_image()
+            if not success:
                 return
-            if not self.image_processing():
+            if not self._image_processing(frame):
                 return
-            self.extract_features()
+            self._extract_features()
         elif self.stage == 2 and self.mode in ['D', 'RT']:
             self.process_reduction()
             if self.mode == 'D':
@@ -180,43 +199,73 @@ class GestureRecognitionSystem:
             elif self.mode == 'RT':
                 self.stage = 4
         elif self.stage == 3 and self.mode == 'D':
-            if self.update_database():
+            if self._update_database():
                 self.loop = False
             self.stage = 0
         elif self.stage == 4 and self.mode == 'RT':
-            self.classify_gestures()
+            self._classify_gestures()
             self.stage = 0
 
-    def read_image(self) -> None:
+    def _read_image_thread(self) -> None:
         """
-        The function `read_image` reads an image from a camera capture device and returns a success flag
-        along with the captured frame.
-        """
-        success, self.frame_captured = self.cap.read()
-        if not success: 
-            print(f"Image capture error.")
-        return success
+        Reads frames from the video capture device and stores the captured frame in the instance variable `frame_captured`.
 
-    def image_processing(self) -> None:
+        This method runs in a separate thread and continuously reads frames from the video capture device. If the frame size is not 640x480,
+        it resizes the frame to the desired size. The captured frame is stored in the `frame_captured` instance variable, which can be accessed
+        by other methods.
+
+        Returns:
+            None
         """
-        This function processes captured frames to detect and track an operator, extract features, and
-        display the results.
+        while True:
+            success, frame = self.cap.read()
+            if success:
+                # Verify if the size image is 640x480, otherwise, resize it
+                if frame.shape[0] != 640 or frame.shape[1] != 480:
+                    frame = cv2.resize(frame, (640, 480))
+                with self.frame_lock:
+                    self.frame_captured = frame
+
+    def _read_image(self) -> tuple[bool, np.ndarray]:
+            """
+            Reads and returns the captured frame from the video stream.
+
+            Returns:
+                A tuple containing a boolean value indicating whether the frame was successfully read,
+                and the captured frame as a numpy array.
+            """
+            with self.frame_lock:
+                if self.frame_captured is None:
+                    return False, None
+                frame = self.frame_captured.copy()  # Create a copy of the frame for thread-safe processing
+            return True, frame
+
+    def _image_processing(self, frame: np.ndarray) -> bool:
+        """
+        Process the input frame for gesture recognition.
+
+        Args:
+            frame (np.ndarray): The input frame to be processed.
+
+        Returns:
+            bool: True if the processing is successful, False otherwise.
         """
         try:
-            # Find a person and build a bounding box around them, tracking them throughout the
-            # experiment.
-            results_people = self.tracking_processor.find_people(self.frame_captured)
+            results_people = self.tracking_processor.find_people(frame)
             results_identifies = self.tracking_processor.identify_operator(results_people)
-            
+
             # Cut out the bounding box for another image.
-            projected_window = self.tracking_processor.track_operator(results_people, results_identifies, self.frame_captured)
-            
+            projected_window, bounding_box = self.tracking_processor.track_operator(results_people, results_identifies, frame)
+
+            # Processes information for servo control
+            self.sps.check_person_centered(frame, bounding_box)
+
             # Finds the operator's hand(s) and body
             self.hands_results, self.pose_results = self.feature.find_features(projected_window)
-            
+
             # Draws the operator's hand(s) and body
             frame_results = self.feature.draw_features(projected_window, self.hands_results, self.pose_results)
-            
+
             # Shows the skeleton formed on the body, and indicates which gesture is being 
             # performed at the moment.
             if self.mode == 'D':
@@ -224,17 +273,19 @@ class GestureRecognitionSystem:
             elif self.mode == 'RT':
                 cv2.putText(frame_results, f"S{self.stage} D{self.dist_virtual_point:.3f}" , (25,25), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 1, cv2.LINE_AA)
             cv2.imshow('RealSense Camera', frame_results)
-            return  True
+            return True
         except Exception as e:
             print(f"E1 - Error during operator detection, tracking or feature extraction: {e}")
-            cv2.imshow('RealSense Camera', cv2.flip(self.frame_captured,1))
+            with self.frame_lock:
+                frame = self.frame_captured
+            cv2.imshow('RealSense Camera', cv2.flip(frame, 1))
             self.hand_history = np.concatenate((self.hand_history, np.array([self.hand_history[-1]])), axis=0)
             self.wrists_history = np.concatenate((self.wrists_history, np.array([self.wrists_history[-1]])), axis=0)
             return False
 
-    def extract_features(self) -> None:
+    def _extract_features(self) -> None:
         """
-        The function `extract_features` processes hand and pose data to track specific joints and
+        The function `_extract_features` processes hand and pose data to track specific joints and
         trigger gestures based on proximity criteria.
         """
         if self.stage == 0:
@@ -287,7 +338,7 @@ class GestureRecognitionSystem:
         # Reduces to a 6x6 matrix 
         self.sample['data_reduce_dim'] = np.dot(self.wrists_history.T, self.wrists_history)
 
-    def update_database(self) -> None:
+    def _update_database(self) -> bool:
         """
         This function updates a database with sample data and saves it in JSON format.
         
@@ -313,7 +364,7 @@ class GestureRecognitionSystem:
         else: 
             return False
 
-    def classify_gestures(self) -> None:
+    def _classify_gestures(self) -> None:
         """
         This function classifies gestures based on the stage and mode, updating predictions and
         resetting sample data variables accordingly.
@@ -327,3 +378,12 @@ class GestureRecognitionSystem:
         
         # Resets sample data variables to default values
         self.hand_history, _, self.wrists_history, self.sample = self.data_processor.initialize_data(self.dist, self.length)
+
+    def stop(self) -> None:
+        """
+        Stops the gesture recognition system.
+
+        """
+        self.loop = False
+        self.cap.release()
+        cv2.destroyAllWindows()

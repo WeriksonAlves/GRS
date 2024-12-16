@@ -5,164 +5,70 @@
 
 ---
 
-## **Overview of Gesture Classification System**
+# Onboard Servo-Visual Control for Action Recognition
 
-The gesture classification system is a software application designed to analyze and interpret human gestures captured through images or videos. Its purpose is to identify and categorize specific gestures, such as hand movements or body poses, into predefined classes or categories. This system finds applications in various fields, including human-computer interaction, sign language recognition, and motion analysis. By accurately recognizing and classifying gestures, the system enables intuitive and natural interaction between humans and machines, facilitating tasks such as controlling devices, interpreting sign language, and analyzing human behavior.
+This repository contains the project developed by Wérikson Alves in the course ELT791 - Special Topics - Robotics and its Utilities at the Federal University of Viçosa. The project focuses on servo-visual control coupled to a drone for recognizing human actions.
 
-1. **Data Acquisition**:
-   - Involves capturing images or videos of gestures using cameras or sensors.
-   - Images or video frames are collected in real-time (for live classification) or from existing datasets.
+## Summary
 
-2. **Feature Extraction**:
-   - Extracting relevant features from the captured data that characterize different gestures.
-   - Features could include hand positions, angles, movement trajectories, or any other distinguishing characteristics.
+- [Introduction](#introduction)
+- [Objectives](#objectives)
+- [Methodology](#Methodology)
+  - [Camera Support](#camera-support)
+  - [Gesture Recognition System](#gesture-recognition-system)
+  - [ESP32CAM Configuration](#esp32cam-configuration)
+  - [Recognition System with Camera Orientation](#recognition-system-with-camera-orientation)
+- [Results Achieved](#results-achieved)
+- [Final Considerations](#final-considerations)
+- [Contact](#contact)
 
-3. **Pre-processing**:
-   - Cleaning and preparing the data for classification.
-   - This may involve resizing images, normalizing pixel values, removing noise, or augmenting the dataset to improve model performance.
+## Introduction
+In this project, we tackle the challenges of human-robot interaction, especially in the context of gesture control using drones. The main goal is to keep the operator always in the drone's field of view without restricting the degrees of freedom, using an action recognition system and a servo-visual control for the camera.
 
-4. **Data Classification**:
-   - Utilizing a machine learning model to classify gestures based on the extracted features.
-   - Common approaches include supervised learning algorithms such as Support Vector Machines (SVM), Convolutional Neural Networks (CNN), or Recurrent Neural Networks (RNN).
+## Objectives
 
-5. **Saved Data Management**:
-   - Handling and storing the results of gesture classification.
-   - This may involve saving classification results to a database, logging them to files, or visualizing them for further analysis.
+- Keep the operator always in the drone's field of vision.
+- Create an external module to attach the camera during missions.
+- *Update the gesture recognition system to capture images from alternative sources.* (See other repository: [Gesture_Recognition_System](https://github.com/WeriksonAlves/Papers_CBA2024_Gesture_Recognition_System))
+- Implement a servo-visual control system for the camera.
 
-By following these steps, the gesture classification system can accurately recognize and classify various gestures, enabling applications such as gesture-based control systems, sign language recognition, and human-computer interaction.
+## Methodology
 
----
+### Camera support
 
-## **Getting Started**
+Implementation of a support for fixing the camera during flight missions.
 
-### **Installation Instructions**
+### Gesture Recognition System
 
-To set up the gesture classification system, you need to install the necessary Python libraries and dependencies used in the system. You can do this easily using `pip`, which is Python's package installer. To install the dependencies from the `requirements.txt` file, navigate to the project directory in the terminal or at the command prompt and run the following command.
-*NOTE*: Check the correct version of [Pytorch](https://pytorch.org/get-started/locally/)
+The system uses the YOLOv8 model for object detection and operator tracking, MediaPipe Hands for hand tracking, and BlazePose for body tracking. Gestures are classified using a kNN classifier.
 
-1. **Clone the `grs` repository into a new folder:**
-   ```bash
-   mkdir env_grs
-   cd env_grs/
-   git clone https://github.com/WeriksonAlves/grs.git
-   ```
+### ESP32CAM configuration
 
-2. **Create a virtual environment and install dependencies:**
-   ```bash
-   python3.9 -m venv venv
-   source venv/bin/activate
-   pip install -r grs/requirements.txt
-   ```
+Configuration of the ESP32CAM to transmit images via streaming over the Wi-Fi network. Implementation of OTA configuration for remote code update and servo motor control using ROS.
 
-### **Usage Instructions**
+### Recognition System with Camera Orientation
 
-The gesture classification system can be used to recognize and classify gestures in various scenarios. Here's how you can use the system effectively:
+Update of the recognition system to include new classes that handle ROS communication, servo initialization, and reading the transmitted images. Implementation of a proportional control routine to keep the operator in the center of the camera's field of view.
 
-1. **Running the System with Different Modes:**
-   - The system supports three different modes of operation:
-     - **Dataset (D)**: To create a dataset to be used as a reference for gestures during classification.
-     - **Real-Time (RT)**: For performing gesture classification in real-time from a live camera feed.
-     - **Validate (V)**: For validating the performance of the classifier on a validation dataset.
+## Results Achieved
 
-2. **Configuring Parameters and Options:**
-    - Depending on the mode of operation, you may need to configure different parameters and options:
-        - For Dataset mode, define the classes that will be used and the name that will be used to save the dataset. Other parameters are optional.
-        - For Real-Time mode, define the names of the reference data and the classes that must be used. Other parameters are optional.
-        - For Validate mode, define the names of the reference data, the classes that will be used, and the name that will be used to save the results. Other parameters are optional.
+- **Image Acquisition:** Identification of limitations such as instability, slowness and distance from the access point.
+- **ESP32CAM:** Evaluation of hardware limitations, especially in relation to transmission quality and frequency.
+- **Support Module:** Effectiveness and challenges observed during the experiments.
+- **Servo Motor Control:** Satisfactory performance with areas identified for future improvement.
 
-    - Next, initialize the `GestureRecognitionSystem()` class, passing the parameters needed to run the system. Then execute the `run()` method.
+## Final Considerations
 
-3. **Example Code Snippets or Usage Scenarios:**
-   - Below are some example code snippets demonstrating how to use the gesture classification system:
+The system developed is functional as a prototype, but requires improvement in areas such as image acquisition and ESP32CAM hardware limitations. The support and control of the servo motor showed good performance, indicating potential for future improvements.
 
-     ```python
-     database = {'F': [], 'I': [], 'L': [], 'P': [], 'T': []}
-     file_name_build = f"path\name_file.json"
-     files_name = ["path\name_file1.json", "path\name_file2.json", ...]
-     name_val = f"val99"
+## Contact
 
-     # Example usage in Dataset mode
-     dataset_mode = ModeFactory.create_mode('dataset', database=database, file_name_build=file_name_build)
-
-     # Example usage in Real-Time mode
-     real_time_mode = ModeFactory.create_mode('real_time', files_name=files_name, database=database)
-
-     # Example usage in Validation mode
-     validate_mode = ModeFactory.create_mode('validate', files_name=files_name, database=database, name_val=name_val)
-     ```
-
-     ```python
-     # Specify the operating mode
-     mode = real_time_mode
-
-     grs = GestureRecognitionSystem(
-            config=InitializeConfig(),
-            operation=mode,
-            file_handler=FileHandler(),
-            current_folder=os.path.dirname(__file__),
-            data_processor=DataProcessor(),
-            time_functions=TimeFunctions(),
-            gesture_analyzer=GestureAnalyzer(),
-            tracking_processor=YoloProcessor('yolov8n-pose.pt'),
-            feature=HolisticProcessor(
-                mp.solutions.hands.Hands(
-                    static_image_mode=False,
-                    max_num_hands=1,
-                    model_complexity=1,
-                    min_detection_confidence=0.75,
-                    min_tracking_confidence=0.75
-                    ),
-                mp.solutions.pose.Pose(
-                    static_image_mode=False,
-                    model_complexity=1,
-                    smooth_landmarks=True,
-                    enable_segmentation=False,
-                    smooth_segmentation=True,
-                    min_detection_confidence=0.75,
-                    min_tracking_confidence=0.75
-                    )
-                ),
-            classifier=KNN(KNeighborsClassifier(n_neighbors=mode.k, algorithm='auto', weights='uniform'))
-            # or classifier=None
-            )
-     grs.run()
-     ```
-
-   - Warning: if you are using the database creation method, remember to remove the 'classifier' parameter or pass it as `None`.
-   - Ensure that the necessary libraries and dependencies are installed before running the system.
+Wérikson F. de O. Alves  
+Federal University of Viçosa  
+Robotics Specialization Nucleus (NERo)  
+Email: werikson.alves@ufv.br  
+LinkedIn: [werikson-alves](https://www.linkedin.com/in/werikson-alves)  
+YouTube: [Wérikson Alves](https://www.youtube.com/@weriksonalves5814)
 
 ---
 
-## **Documentation**
-
-
-
----
-
-## **Examples**
-
-As an example of how to use the classification system, you can use the dataset available in the "Dataset" folder for Real-Time mode. To do this, run the `main.py` code. To initiate the gesture, bring the fingertips of the tracked hand together until their distance is less than 0.025 (this value is displayed in the real-time window). The gestures included in the database are shown in the figure below.
-
-![alt text](docs/images/gesture_class.png)
-
-Please note that the `main.py` script must be run without any changes.
-
-*NOTE*: The preview window also indicates the stages of the action (S0 for awaiting trigger and S1 for storing gesture information) and shows the number of actions performed so far.
-
----
-
-## **Updates**
-
-
-
----
-
-## **Contributing**
-
-We welcome contributions! Feel free to open issues or submit pull requests to enhance the project.
-
----
-
-## **Contact Information**
-
-For more information, any questions, or suggestions for improvement, please get in touch.

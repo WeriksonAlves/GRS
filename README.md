@@ -1,74 +1,212 @@
-# grs
+# Gesture Recognition System (GRS)
+
 **Python interface for Gesture Recognition System**
 
-`grs` is a Python-based project developed to interface a modular tracking system using open-source frameworks. Developed by Werikson Alves, this library serves as the basis for tracking and classification systems aimed at command applications for autonomous robots controlled using gesture recognition. It is ideal for developers, researchers, and amateurs interested in exploring gesture recognition systems in indoor and outdoor environments.
+`grs` is a Python-based project designed to interface a modular tracking and classification system using open-source frameworks. It supports gesture recognition for command applications in autonomous robotics. This library is ideal for developers, researchers, and enthusiasts interested in gesture recognition systems in both indoor and outdoor environments.
 
 ---
 
-# Onboard Servo-Visual Control for Action Recognition
+## **Overview of the Gesture Recognition System**
 
-This repository contains the project developed by Wérikson Alves in the course ELT791 - Special Topics - Robotics and its Utilities at the Federal University of Viçosa. The project focuses on servo-visual control coupled to a drone for recognizing human actions.
+The Gesture Recognition System (GRS) is a software solution for analyzing and interpreting human gestures captured through camera feeds. It supports real-time classification and gesture dataset management, making it applicable in various fields, such as:
 
-## Summary
+- Human-computer interaction
+- Autonomous robot control via gestures
+- Sign language recognition
+- Motion analysis
 
-- [Introduction](#introduction)
-- [Objectives](#objectives)
-- [Methodology](#Methodology)
-  - [Camera Support](#camera-support)
-  - [Gesture Recognition System](#gesture-recognition-system)
-  - [ESP32CAM Configuration](#esp32cam-configuration)
-  - [Recognition System with Camera Orientation](#recognition-system-with-camera-orientation)
-- [Results Achieved](#results-achieved)
-- [Final Considerations](#final-considerations)
-- [Contact](#contact)
+**Key Features:**
 
-## Introduction
-In this project, we tackle the challenges of human-robot interaction, especially in the context of gesture control using drones. The main goal is to keep the operator always in the drone's field of view without restricting the degrees of freedom, using an action recognition system and a servo-visual control for the camera.
+1. **Real-Time Gesture Recognition:**
+   - Classify gestures from live camera streams.
 
-## Objectives
+2. **Dataset Management:**
+   - Create and manage gesture datasets for training machine learning models.
 
-- Keep the operator always in the drone's field of vision.
-- Create an external module to attach the camera during missions.
-- *Update the gesture recognition system to capture images from alternative sources.* (See other repository: [Gesture_Recognition_System](https://github.com/WeriksonAlves/Papers_CBA2024_Gesture_Recognition_System))
-- Implement a servo-visual control system for the camera.
-
-## Methodology
-
-### Camera support
-
-Implementation of a support for fixing the camera during flight missions.
-
-### Gesture Recognition System
-
-The system uses the YOLOv8 model for object detection and operator tracking, MediaPipe Hands for hand tracking, and BlazePose for body tracking. Gestures are classified using a kNN classifier.
-
-### ESP32CAM configuration
-
-Configuration of the ESP32CAM to transmit images via streaming over the Wi-Fi network. Implementation of OTA configuration for remote code update and servo motor control using ROS.
-
-### Recognition System with Camera Orientation
-
-Update of the recognition system to include new classes that handle ROS communication, servo initialization, and reading the transmitted images. Implementation of a proportional control routine to keep the operator in the center of the camera's field of view.
-
-## Results Achieved
-
-- **Image Acquisition:** Identification of limitations such as instability, slowness and distance from the access point.
-- **ESP32CAM:** Evaluation of hardware limitations, especially in relation to transmission quality and frequency.
-- **Support Module:** Effectiveness and challenges observed during the experiments.
-- **Servo Motor Control:** Satisfactory performance with areas identified for future improvement.
-
-## Final Considerations
-
-The system developed is functional as a prototype, but requires improvement in areas such as image acquisition and ESP32CAM hardware limitations. The support and control of the servo motor showed good performance, indicating potential for future improvements.
-
-## Contact
-
-Wérikson F. de O. Alves  
-Federal University of Viçosa  
-Robotics Specialization Nucleus (NERo)  
-Email: werikson.alves@ufv.br  
-LinkedIn: [werikson-alves](https://www.linkedin.com/in/werikson-alves)  
-YouTube: [Wérikson Alves](https://www.youtube.com/@weriksonalves5814)
+3. **Validation Mode:**
+   - Validate the classification accuracy of trained models.
 
 ---
 
+## **Getting Started**
+
+### **Installation Instructions**
+
+To set up the system, install the required Python libraries and dependencies. It is recommended to use a virtual environment for clean installation. 
+
+1. **Clone the repository:**
+   ```bash
+   mkdir env_grs
+   cd env_grs/
+   git clone https://github.com/WeriksonAlves/grs.git
+   ```
+
+2. **Set up a virtual environment and install dependencies:**
+   ```bash
+   python3.9 -m venv venv
+   source venv/bin/activate
+   pip install -r grs/requirements.txt
+   ```
+
+3. **Verify Pytorch Installation:**
+   Ensure you have the correct version of [Pytorch](https://pytorch.org/get-started/locally/) installed based on your system and hardware (e.g., GPU or CPU).
+
+---
+
+### **Usage Instructions**
+
+The Gesture Recognition System supports three operation modes:
+
+1. **Dataset Mode (D):**
+   - Create gesture datasets to use as references for classification.
+
+2. **Real-Time Mode (RT):**
+   - Perform live gesture recognition using a connected camera.
+
+3. **Validation Mode (V):**
+   - Validate classifier performance using test datasets.
+
+#### **Running the System**
+
+1. **Initialize the Operating Mode:**
+   Define the mode (e.g., Dataset, Real-Time, or Validate) using the `initialize_modes` function.
+   
+   Example:
+   ```python
+   operation_mode = initialize_modes(3)  # Real-Time mode
+   ```
+
+2. **Initialize the Gesture Recognition System:**
+   Create the system with the desired configuration:
+   ```python
+   gesture_system = create_gesture_recognition_system(
+       camera=4,  # or "http://192.168.209.199:81/stream" for ESPCam
+       operation_mode=operation_mode,
+       sps=None  # Optional: Servo Position System
+   )
+   ```
+
+3. **Run the System:**
+   Call the `run()` method to start gesture recognition.
+   ```python
+   try:
+       gesture_system.run()
+   finally:
+       gesture_system.stop()
+   ```
+
+---
+
+### **Modes and Configuration**
+
+#### **Dataset Mode**
+- Specify the classes for gestures and the filename to save the dataset.
+
+#### **Real-Time Mode**
+- Load a pre-existing dataset and classify gestures live from the camera feed.
+
+#### **Validation Mode**
+- Specify a test dataset and validate the model's performance.
+
+Example configuration code:
+```python
+# Dataset Mode
+dataset_mode = initialize_modes(1)
+
+# Real-Time Mode
+real_time_mode = initialize_modes(3)
+
+# Validation Mode
+validate_mode = initialize_modes(2)
+```
+
+---
+
+### **Example Code**
+
+Below is a complete example to initialize and run the system in Real-Time Mode:
+
+```python
+from gesture_recognition_system import initialize_modes, create_gesture_recognition_system
+
+# Initialize Real-Time Mode
+operation_mode = initialize_modes(3)
+
+# Create Gesture Recognition System
+gesture_system = create_gesture_recognition_system(
+    camera=4,  # RealSense Camera
+    operation_mode=operation_mode,
+    sps=None  # Servo Position System (optional)
+)
+
+# Run the System
+try:
+    gesture_system.run()
+finally:
+    gesture_system.stop()
+```
+
+---
+
+### **Dataset Example**
+
+The system includes a sample dataset in the "datasets" folder. Use this dataset to test the Real-Time or Validation mode. Launch the system via the `main.py` script. When using this example, ensure:
+
+- Gestures are initiated by bringing the fingertips of the tracked hand together until their distance is less than `0.025`.
+- The system displays the action's stages (`S0` for awaiting trigger, `S1` for storing gesture information).
+
+---
+
+## **Documentation**
+
+Detailed documentation on the system's architecture, modules, and configuration options is available in the `docs` folder. Key sections include:
+
+- Camera setup and supported models
+- Modes of operation
+- Gesture classification pipeline
+- ROS integration and logging
+
+---
+
+## **Examples**
+
+The following image demonstrates the gestures included in the sample dataset:
+
+![Gestures Overview](docs/images/gesture_class.png)
+
+Run the example as follows:
+```bash
+python main.py
+```
+
+*Note:* Ensure the preview window indicates the correct gesture stage (e.g., `S0`, `S1`) during operation.
+
+---
+
+## **Updates**
+
+Version 3.0 introduces the following changes:
+- Refactored code to comply with PEP8 and clean code principles.
+- Improved logging using `rospy`.
+- Added modular design for easier extension.
+
+---
+
+## **Contributing**
+
+We welcome contributions from the community! Please follow these steps to contribute:
+1. Fork the repository.
+2. Create a feature branch.
+3. Submit a pull request with detailed descriptions of your changes.
+
+Feel free to open issues or suggest improvements.
+
+---
+
+## **Contact Information**
+
+For questions, suggestions, or feedback, please reach out:
+
+- **Name**: Werikson Alves
+- **Email**: werikson.alves@ufv.br
+- **GitHub**: [Your GitHub Profile](https://github.com/WeriksonAlves)

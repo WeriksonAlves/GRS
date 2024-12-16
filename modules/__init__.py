@@ -1,25 +1,28 @@
-from .auxiliary.DrawGraphics import DrawGraphics
-from .auxiliary.FileHandler import FileHandler
-from .auxiliary.TimeFunctions import TimeFunctions
+from .auxiliary.MyGraphics import MyGraphics
+from .auxiliary.MyDataHandler import MyDataHandler
+from .auxiliary.MyTimer import TimingDecorator
+from .auxiliary.MyTimer import TimeTracker
+
+from .camera.StandardCameras import StandardCameras
 
 from .classifier.knn import KNN
-from .classifier.interfaces import InterfaceClassifier
 
-from .gesture.DataProcessor import DataProcessor
-from .gesture.FeatureExtractor import FeatureExtractor
-from .gesture.GestureAnalyzer import GestureAnalyzer
+from .extractor.MyMediaPipe import FeatureExtractor
+from .extractor.MyMediaPipe import MyHandsMediaPipe
+from .extractor.MyMediaPipe import MyPoseMediaPipe
 
-from .pdi.YoloProcessor import  YoloProcessor
-from .pdi.HolisticProcessor import  HolisticProcessor
-from .pdi.interfaces import InterfaceTrack
-from .pdi.interfaces import InterfaceFeature
+from .interfaces.CameraInterface import CameraInterface
+from .interfaces.ClassifierInterface import ClassifierInterface
+from .interfaces.ExtractorInterface import ExtractorInterface
+from .interfaces.TrackerInterface import TrackerInterface
 
-from .ros.ServoControl import CommunicationEspCam
+from .ros.EspCamServo import EspCamServo
 
 from .system.GestureRecognitionSystem import GestureRecognitionSystem
-from .system.ServoPositionSystem import ServoPositionSystem
-from .system.SystemSettings import InitializeConfig
-from .system.SystemSettings import ModeFactory
-from .system.SystemSettings import ModeDataset
-from .system.SystemSettings import ModeValidate
-from .system.SystemSettings import ModeRealTime
+from .system.ServoPosition import ServoPosition
+from .system.Settings import DatasetMode
+from .system.Settings import FactoryMode
+from .system.Settings import RealTimeMode
+from .system.Settings import ValidationMode
+
+from .tracker.MyYolo import MyYolo

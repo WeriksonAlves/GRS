@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 ...............................................................................................
 Description
@@ -18,7 +19,10 @@ from modules import *
 from sklearn.neighbors import KNeighborsClassifier
 import mediapipe as mp
 import os
+import rospy
+from std_msgs.msg import Int32
 
+# Initialize the Gesture Recognition System
 database = {'F': [], 'I': [], 'L': [], 'P': [], 'T': []}
 file_name_build = f"datasets/DataBase_(5-10)_16.json"
 files_name= ['datasets/DataBase_(5-10)_G.json',
@@ -39,15 +43,29 @@ files_name= ['datasets/DataBase_(5-10)_G.json',
             ]
 name_val=f"val99"
 
-config = InitializeConfig()
 dataset_mode = ModeFactory.create_mode('dataset', database=database, file_name_build=file_name_build)
 validate_mode = ModeFactory.create_mode('validate', files_name=files_name, database=database, name_val=name_val)
 real_time_mode = ModeFactory.create_mode('real_time', files_name=files_name, database=database)
 
 mode = real_time_mode
 
+# Initialize the Servo Position System
+num_servos = 0 # Number of servos in the system
+if num_servos != 0:
+    dir_rot = 1 #direction of rotation
+    rospy.init_node('RecognitionSystem', anonymous=True)
+    pub_hor_rot = rospy.Publisher('/EspSystem/hor_rot', Int32, queue_size=10)
+    pub_ver_rot = rospy.Publisher('/EspSystem/ver_rot', Int32, queue_size=10)
+else:
+    pub_hor_rot = None
+    pub_ver_rot = None
+    dir_rot = 0
+    
+SPS = ServoPositionSystem(num_servos, pub_hor_rot, pub_ver_rot, dir_rot)
+
 grs = GestureRecognitionSystem(
-        config=InitializeConfig(4),
+        config=InitializeConfig('http://192.168.209.199:81/stream'),
+        # config=InitializeConfig(4,10),
         operation=mode,
         file_handler=FileHandler(),
         current_folder=os.path.dirname(__file__),
@@ -79,8 +97,12 @@ grs = GestureRecognitionSystem(
                 algorithm='auto', 
                 weights='uniform'
                 )
-            )
+            ),
+        sps=SPS
         )
 
-grs.run()
+try:
+    grs.run()
+finally:
+    grs.stop()
 

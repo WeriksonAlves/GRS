@@ -45,7 +45,7 @@ To set up the system, install the required Python libraries and dependencies. It
    ```bash
    python3.9 -m venv venv
    source venv/bin/activate
-   pip install -r grs/requirements.txt
+   pip3.9 install -r grs/requirements.txt
    ```
 
 3. **Verify Pytorch Installation:**
